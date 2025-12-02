@@ -68,7 +68,8 @@ public class TokenServiceImpl implements TokenService {
                     .parseSignedClaims(token)
                     .getPayload();
 
-            String username = claims.get("username", String.class);
+            // Use subject (userId) as the principal name for extracting in controllers
+            String userId = claims.getSubject();
             
             // Roles are stored as a List in the JWT
             @SuppressWarnings("unchecked")
@@ -78,7 +79,7 @@ public class TokenServiceImpl implements TokenService {
                     .map(SimpleGrantedAuthority::new)
                     .collect(Collectors.toSet());
 
-            User principal = new User(username, "", authorities);
+            User principal = new User(userId, "", authorities);
 
             return new UsernamePasswordAuthenticationToken(principal, token, authorities);
             
