@@ -18,6 +18,13 @@ public class ResourceNotFoundException extends BaseException {
               HttpStatus.NOT_FOUND, DEFAULT_ERROR_CODE);
     }
     
+    /**
+     * Generic factory method to create ResourceNotFoundException.
+     */
+    public static ResourceNotFoundException create(String resourceName, String fieldName, Object fieldValue) {
+        return new ResourceNotFoundException(resourceName, fieldName, fieldValue);
+    }
+    
     public static ResourceNotFoundException roleNotFound(String roleName) {
         return new ResourceNotFoundException("Role", "name", roleName);
     }
@@ -28,5 +35,13 @@ public class ResourceNotFoundException extends BaseException {
     
     public static ResourceNotFoundException userNotFoundById(Long id) {
         return new ResourceNotFoundException("User", "id", id);
+    }
+    
+    public static ResourceNotFoundException categoryNotFound(Long id) {
+        return new ResourceNotFoundException("Category", "id", id);
+    }
+    
+    public static ResourceNotFoundException newsNotFound(Long id) {
+        return new ResourceNotFoundException("News", "id", id);
     }
 }

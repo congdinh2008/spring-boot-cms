@@ -1,6 +1,7 @@
 package com.congdinh.cms.config;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Set;
 
 import org.springframework.boot.CommandLineRunner;
@@ -9,9 +10,11 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import com.congdinh.cms.constants.Constants;
+import com.congdinh.cms.entities.Category;
 import com.congdinh.cms.entities.Role;
 import com.congdinh.cms.entities.User;
 import com.congdinh.cms.enums.UserStatus;
+import com.congdinh.cms.repositories.CategoryRepository;
 import com.congdinh.cms.repositories.RoleRepository;
 import com.congdinh.cms.repositories.UserRepository;
 
@@ -20,7 +23,7 @@ import lombok.extern.slf4j.Slf4j;
 
 /**
  * Database initializer that runs on application startup.
- * Creates default roles and admin user if they don't exist.
+ * Creates default roles, users, and categories if they don't exist.
  */
 @Slf4j
 @Configuration
@@ -29,6 +32,7 @@ public class DataInitializer {
 
     private final RoleRepository roleRepository;
     private final UserRepository userRepository;
+    private final CategoryRepository categoryRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Bean
@@ -36,6 +40,7 @@ public class DataInitializer {
         return args -> {
             initRoles();
             initAdminUser();
+            initCategories();
         };
     }
 
@@ -101,6 +106,32 @@ public class DataInitializer {
             
             userRepository.save(reporter);
             log.info("Created default reporter user: {} / Reporter@1234", reporterUsername);
+        }
+    }
+
+    /**
+     * Initialize default categories for the CMS
+     */
+    private void initCategories() {
+        List<String[]> defaultCategories = List.of(
+            new String[]{"Tin tức", "tin-tuc"},
+            new String[]{"Thể thao", "the-thao"},
+            new String[]{"Công nghệ", "cong-nghe"},
+            new String[]{"Giải trí", "giai-tri"},
+            new String[]{"Kinh doanh", "kinh-doanh"}
+        );
+
+        for (String[] categoryData : defaultCategories) {
+            String name = categoryData[0];
+            String slug = categoryData[1];
+
+            if (!categoryRepository.existsBySlug(slug)) {
+                Category category = new Category();
+                category.setName(name);
+                category.setSlug(slug);
+                categoryRepository.save(category);
+                log.info("Created default category: {}", name);
+            }
         }
     }
 }

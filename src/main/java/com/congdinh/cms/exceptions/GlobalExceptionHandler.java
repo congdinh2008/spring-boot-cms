@@ -5,6 +5,8 @@ import java.util.Map;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -36,6 +38,22 @@ public class GlobalExceptionHandler {
         );
         
         return new ResponseEntity<>(response, ex.getHttpStatus());
+    }
+
+    /**
+     * Handles Spring Security authorization denied exceptions.
+     */
+    @ExceptionHandler({AccessDeniedException.class, AuthorizationDeniedException.class})
+    public ResponseEntity<ApiResponse<Void>> handleAccessDeniedException(Exception ex) {
+        log.warn("Access denied: {}", ex.getMessage());
+        
+        ApiResponse<Void> response = ApiResponse.error(
+            HttpStatus.FORBIDDEN.value(),
+            "You do not have permission to access this resource",
+            Map.of("errorCode", "AUTH_003")
+        );
+        
+        return new ResponseEntity<>(response, HttpStatus.FORBIDDEN);
     }
 
     /**
