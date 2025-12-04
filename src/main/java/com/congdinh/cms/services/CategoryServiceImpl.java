@@ -2,8 +2,11 @@ package com.congdinh.cms.services;
 
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import com.congdinh.cms.dtos.PageResponseDTO;
 import com.congdinh.cms.dtos.category.CategoryRequestDTO;
 import com.congdinh.cms.dtos.category.CategoryResponseDTO;
 import com.congdinh.cms.entities.Category;
@@ -34,6 +37,16 @@ public class CategoryServiceImpl implements CategoryService {
         return categoryRepository.findAll().stream()
                 .map(this::mapToResponseDTO)
                 .toList();
+    }
+
+    @Override
+    public PageResponseDTO<CategoryResponseDTO> searchCategories(String keyword, Pageable pageable) {
+        log.debug("Searching categories with keyword: '{}', pageable: {}", keyword, pageable);
+        
+        Page<Category> categoryPage = categoryRepository.searchCategories(keyword, pageable);
+        Page<CategoryResponseDTO> dtoPage = categoryPage.map(this::mapToResponseDTO);
+        
+        return PageResponseDTO.from(dtoPage);
     }
 
     @Override

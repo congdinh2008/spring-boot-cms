@@ -2,12 +2,16 @@ package com.congdinh.cms.controllers;
 
 import java.util.List;
 
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import com.congdinh.cms.dtos.ApiResponse;
+import com.congdinh.cms.dtos.PageResponseDTO;
 import com.congdinh.cms.dtos.category.CategoryRequestDTO;
 import com.congdinh.cms.dtos.category.CategoryResponseDTO;
 import com.congdinh.cms.services.CategoryService;
@@ -33,17 +37,64 @@ public class CategoryController {
 
     private final CategoryService categoryService;
 
+    private static final int DEFAULT_PAGE_SIZE = 10;
+    private static final int MAX_PAGE_SIZE = 100;
+
     /**
-     * Get all categories (Public).
+     * Get all categories (Public) - No pagination.
      */
-    @GetMapping
-    @Operation(summary = "Get all categories", description = "Returns a list of all categories. This endpoint is public and does not require authentication.")
+    @GetMapping("/all")
+    @Operation(summary = "Get all categories (no pagination)", description = "Returns a list of all categories without pagination. Useful for dropdowns and filters.")
     @ApiResponses(value = {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Categories retrieved successfully", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponse.class)))
     })
     public ResponseEntity<ApiResponse<List<CategoryResponseDTO>>> getAllCategories() {
         List<CategoryResponseDTO> categories = categoryService.getAllCategories();
         return ResponseEntity.ok(ApiResponse.success(categories, "Categories retrieved successfully"));
+    }
+
+    /**
+     * Search categories with pagination (Public).
+     */
+    @GetMapping
+    @Operation(
+        summary = "Search categories with pagination", 
+        description = "Search categories by keyword (name or slug) with pagination and sorting. " +
+                      "Default sort: createdAt DESC. Allowed sort fields: name, slug, createdAt."
+    )
+    @ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Categories retrieved successfully", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponse.class)))
+    })
+    public ResponseEntity<ApiResponse<PageResponseDTO<CategoryResponseDTO>>> searchCategories(
+            @Parameter(description = "Search keyword for name or slug", example = "công nghệ")
+            @RequestParam(required = false) String keyword,
+            
+            @Parameter(description = "Page number (0-indexed)", example = "0")
+            @RequestParam(defaultValue = "0") int page,
+            
+            @Parameter(description = "Page size (max 100)", example = "10")
+            @RequestParam(defaultValue = "10") int size,
+            
+            @Parameter(description = "Sort field (name, slug, createdAt)", example = "createdAt")
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            
+            @Parameter(description = "Sort direction (asc, desc)", example = "desc")
+            @RequestParam(defaultValue = "desc") String sortDir) {
+        
+        // Validate and limit page size
+        size = Math.min(size, MAX_PAGE_SIZE);
+        if (size <= 0) size = DEFAULT_PAGE_SIZE;
+        
+        // Validate sort field
+        String validSortBy = validateSortField(sortBy, "name", "slug", "createdAt");
+        Sort sort = sortDir.equalsIgnoreCase("asc") 
+                ? Sort.by(validSortBy).ascending() 
+                : Sort.by(validSortBy).descending();
+        
+        Pageable pageable = PageRequest.of(page, size, sort);
+        PageResponseDTO<CategoryResponseDTO> result = categoryService.searchCategories(keyword, pageable);
+        
+        return ResponseEntity.ok(ApiResponse.success(result, "Categories retrieved successfully"));
     }
 
     /**
@@ -132,5 +183,17 @@ public class CategoryController {
             @Parameter(description = "Category ID", required = true, example = "1") @PathVariable Long id) {
         categoryService.deleteCategory(id);
         return ResponseEntity.ok(ApiResponse.success(null, "Category deleted successfully"));
+    }
+
+    /**
+     * Validate sort field against allowed fields.
+     */
+    private String validateSortField(String sortBy, String... allowedFields) {
+        for (String field : allowedFields) {
+            if (field.equalsIgnoreCase(sortBy)) {
+                return field;
+            }
+        }
+        return allowedFields[0]; // Default to first allowed field
     }
 }

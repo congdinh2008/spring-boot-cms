@@ -2,9 +2,12 @@ package com.congdinh.cms.services;
 
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.congdinh.cms.dtos.PageResponseDTO;
 import com.congdinh.cms.dtos.news.NewsDetailDTO;
 import com.congdinh.cms.dtos.news.NewsRequestDTO;
 import com.congdinh.cms.dtos.news.NewsResponseDTO;
@@ -52,6 +55,32 @@ public class NewsServiceImpl implements NewsService {
         return newsList.stream()
                 .map(this::mapToResponseDTO)
                 .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponseDTO<NewsResponseDTO> searchNews(
+            String keyword,
+            Long categoryId,
+            NewsStatus status,
+            Long authorId,
+            boolean isAuthenticated,
+            Pageable pageable) {
+        
+        log.debug("Searching news - keyword: '{}', categoryId: {}, status: {}, authorId: {}, authenticated: {}", 
+                keyword, categoryId, status, authorId, isAuthenticated);
+        
+        Page<News> newsPage;
+        if (isAuthenticated) {
+            // Authenticated users can filter by any status
+            newsPage = newsRepository.searchNews(keyword, categoryId, status, authorId, pageable);
+        } else {
+            // Guests only see PUBLISHED news
+            newsPage = newsRepository.searchPublishedNews(keyword, categoryId, pageable);
+        }
+        
+        Page<NewsResponseDTO> dtoPage = newsPage.map(this::mapToResponseDTO);
+        return PageResponseDTO.from(dtoPage);
     }
 
     @Override

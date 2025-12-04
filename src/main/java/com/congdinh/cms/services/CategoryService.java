@@ -2,6 +2,9 @@ package com.congdinh.cms.services;
 
 import java.util.List;
 
+import org.springframework.data.domain.Pageable;
+
+import com.congdinh.cms.dtos.PageResponseDTO;
 import com.congdinh.cms.dtos.category.CategoryRequestDTO;
 import com.congdinh.cms.dtos.category.CategoryResponseDTO;
 
@@ -11,11 +14,20 @@ import com.congdinh.cms.dtos.category.CategoryResponseDTO;
 public interface CategoryService {
     
     /**
-     * Get all categories.
+     * Get all categories (no pagination).
      * 
      * @return list of all categories
      */
     List<CategoryResponseDTO> getAllCategories();
+
+    /**
+     * Search categories with pagination and sorting.
+     * 
+     * @param keyword search keyword for name or slug
+     * @param pageable pagination and sorting parameters
+     * @return paginated list of categories
+     */
+    PageResponseDTO<CategoryResponseDTO> searchCategories(String keyword, Pageable pageable);
     
     /**
      * Get a category by ID.

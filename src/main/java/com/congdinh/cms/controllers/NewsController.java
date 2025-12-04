@@ -2,6 +2,9 @@ package com.congdinh.cms.controllers;
 
 import java.util.List;
 
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -10,9 +13,11 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.web.bind.annotation.*;
 
 import com.congdinh.cms.dtos.ApiResponse;
+import com.congdinh.cms.dtos.PageResponseDTO;
 import com.congdinh.cms.dtos.news.NewsDetailDTO;
 import com.congdinh.cms.dtos.news.NewsRequestDTO;
 import com.congdinh.cms.dtos.news.NewsResponseDTO;
+import com.congdinh.cms.enums.NewsStatus;
 import com.congdinh.cms.services.NewsService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -38,15 +43,18 @@ public class NewsController {
 
     private final NewsService newsService;
 
+    private static final int DEFAULT_PAGE_SIZE = 10;
+    private static final int MAX_PAGE_SIZE = 100;
+
     /**
-     * Get all news articles.
+     * Get all news articles (no pagination).
      * - Guest: only PUBLISHED
      * - Authenticated: all news
      */
-    @GetMapping
-    @Operation(summary = "Get all news articles", description = "Returns all news articles. Guest users see only PUBLISHED articles, "
-            +
-            "authenticated users see all articles regardless of status.")
+    @GetMapping("/all")
+    @Operation(summary = "Get all news articles (no pagination)", 
+               description = "Returns all news articles without pagination. Guest users see only PUBLISHED articles, " +
+                             "authenticated users see all articles regardless of status.")
     @ApiResponses(value = {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "News articles retrieved successfully", content = @Content(mediaType = "application/json", array = @ArraySchema(schema = @Schema(implementation = NewsResponseDTO.class))))
     })
@@ -54,6 +62,67 @@ public class NewsController {
         boolean isAuthenticated = authentication != null && authentication.isAuthenticated();
         List<NewsResponseDTO> news = newsService.getAllNews(isAuthenticated);
         return ResponseEntity.ok(ApiResponse.success(news, "News retrieved successfully"));
+    }
+
+    /**
+     * Search news articles with pagination.
+     * - Guest: only PUBLISHED
+     * - Authenticated: can filter by status, author
+     */
+    @GetMapping
+    @Operation(
+        summary = "Search news articles with pagination", 
+        description = "Search and filter news articles with pagination and sorting. " +
+                      "Guest users only see PUBLISHED articles. Authenticated users can filter by status and author. " +
+                      "Default sort: createdAt DESC. Allowed sort fields: title, createdAt, updatedAt, status."
+    )
+    @ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "News articles retrieved successfully", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponse.class)))
+    })
+    public ResponseEntity<ApiResponse<PageResponseDTO<NewsResponseDTO>>> searchNews(
+            @Parameter(description = "Search keyword for title or content", example = "công nghệ")
+            @RequestParam(required = false) String keyword,
+            
+            @Parameter(description = "Filter by category ID", example = "1")
+            @RequestParam(required = false) Long categoryId,
+            
+            @Parameter(description = "Filter by status (DRAFT, PUBLISHED) - only for authenticated users", example = "PUBLISHED")
+            @RequestParam(required = false) NewsStatus status,
+            
+            @Parameter(description = "Filter by author ID - only for authenticated users", example = "2")
+            @RequestParam(required = false) Long authorId,
+            
+            @Parameter(description = "Page number (0-indexed)", example = "0")
+            @RequestParam(defaultValue = "0") int page,
+            
+            @Parameter(description = "Page size (max 100)", example = "10")
+            @RequestParam(defaultValue = "10") int size,
+            
+            @Parameter(description = "Sort field (title, createdAt, updatedAt, status)", example = "createdAt")
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            
+            @Parameter(description = "Sort direction (asc, desc)", example = "desc")
+            @RequestParam(defaultValue = "desc") String sortDir,
+            
+            Authentication authentication) {
+        
+        // Validate and limit page size
+        size = Math.min(size, MAX_PAGE_SIZE);
+        if (size <= 0) size = DEFAULT_PAGE_SIZE;
+        
+        // Validate sort field
+        String validSortBy = validateSortField(sortBy, "title", "createdAt", "updatedAt", "status");
+        Sort sort = sortDir.equalsIgnoreCase("asc") 
+                ? Sort.by(validSortBy).ascending() 
+                : Sort.by(validSortBy).descending();
+        
+        Pageable pageable = PageRequest.of(page, size, sort);
+        boolean isAuthenticated = authentication != null && authentication.isAuthenticated();
+        
+        PageResponseDTO<NewsResponseDTO> result = newsService.searchNews(
+                keyword, categoryId, status, authorId, isAuthenticated, pageable);
+        
+        return ResponseEntity.ok(ApiResponse.success(result, "News retrieved successfully"));
     }
 
     /**
@@ -145,6 +214,18 @@ public class NewsController {
         boolean isAdmin = hasRole(authentication, "ROLE_ADMIN");
         newsService.deleteNews(id, currentUserId, isAdmin);
         return ResponseEntity.ok(ApiResponse.success(null, "News deleted successfully"));
+    }
+
+    /**
+     * Validate sort field against allowed fields.
+     */
+    private String validateSortField(String sortBy, String... allowedFields) {
+        for (String field : allowedFields) {
+            if (field.equalsIgnoreCase(sortBy)) {
+                return field;
+            }
+        }
+        return allowedFields[0]; // Default to first allowed field
     }
 
     /**
