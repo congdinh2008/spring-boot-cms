@@ -1,6 +1,6 @@
 # CMS - Content Management System
 
-A full-stack Content Management System built with Spring Boot backend and React TypeScript frontend.
+A full-stack Content Management System built with Spring Boot backend and React TypeScript frontend, deployed on Google Cloud Platform.
 
 ## 🏗️ Project Structure
 
@@ -8,16 +8,25 @@ A full-stack Content Management System built with Spring Boot backend and React 
 cms/
 ├── backend/                 # Spring Boot API
 │   ├── src/
+│   │   └── main/
+│   │       ├── java/       # Java source code
+│   │       └── resources/  # Configuration files
 │   ├── pom.xml
-│   ├── Dockerfile
-│   └── docker-compose.yml
+│   └── Dockerfile
 ├── frontend/                # React + TypeScript + Vite
 │   ├── src/
+│   │   ├── api/           # API client
+│   │   ├── components/    # React components
+│   │   ├── hooks/         # Custom React hooks
+│   │   ├── pages/         # Page components
+│   │   ├── stores/        # Zustand stores
+│   │   └── types/         # TypeScript types
 │   ├── package.json
-│   └── Dockerfile
-├── infrastructure/          # Infrastructure as Code
-│   ├── terraform/          # GCP Terraform configs
-│   └── docker/             # Docker configurations
+│   ├── Dockerfile
+│   └── nginx.conf
+├── infrastructure/
+│   └── terraform/          # GCP Terraform configs
+├── docker-compose.yml       # Full-stack Docker setup
 └── README.md
 ```
 
@@ -25,23 +34,28 @@ cms/
 
 ### Backend
 - **Framework**: Spring Boot 4.0.0
-- **Security**: Spring Security 7.0 + JWT
+- **Security**: Spring Security 7.0 + JWT Authentication
 - **Database**: PostgreSQL 17
 - **API Documentation**: OpenAPI 3.0 (Swagger)
+- **Build**: Maven
 
 ### Frontend
 - **Framework**: React 18 + TypeScript
-- **Build Tool**: Vite
-- **State Management**: TanStack Query
-- **UI Library**: Tailwind CSS + Shadcn/ui
+- **Build Tool**: Vite 7
+- **State Management**: 
+  - TanStack Query (Server State)
+  - Zustand (Client State)
+- **Styling**: Tailwind CSS 4.0
 - **Routing**: React Router v6
+- **HTTP Client**: Axios
 
 ### Infrastructure
 - **Cloud**: Google Cloud Platform (GCP)
-- **Container**: Docker + Cloud Run
-- **Database**: Cloud SQL (PostgreSQL)
+- **Compute**: Cloud Run (Serverless)
+- **Database**: Cloud SQL (PostgreSQL 17)
+- **Container Registry**: Artifact Registry
+- **Secrets**: Secret Manager
 - **IaC**: Terraform
-- **CI/CD**: GitHub Actions
 
 ## 🛠️ Development Setup
 
@@ -56,8 +70,14 @@ cms/
 ```bash
 cd backend
 
-# Start database
-docker-compose up -d postgres
+# Start database with Docker
+docker run -d \
+  --name cms-postgres \
+  -e POSTGRES_DB=cms \
+  -e POSTGRES_USER=cms \
+  -e POSTGRES_PASSWORD=cms123 \
+  -p 5432:5432 \
+  postgres:17-alpine
 
 # Run application
 ./mvnw spring-boot:run
@@ -74,30 +94,103 @@ cd frontend
 # Install dependencies
 npm install
 
-# Start dev server
+# Start dev server (proxies /api to backend)
 npm run dev
 
 # App available at http://localhost:5173
 ```
 
-### Full Stack (Docker Compose)
+### Full Stack with Docker Compose
 
 ```bash
 # From root directory
-docker-compose -f infrastructure/docker/docker-compose.yml up -d
+cp .env.example .env  # Configure environment variables
+docker-compose up -d
 
-# Backend: http://localhost:8080
-# Frontend: http://localhost:3000
+# Frontend: http://localhost (port 80)
+# Backend API: http://localhost:8080
+# Database: localhost:5432
 ```
 
-## 📦 Deployment
+## 📦 Production Deployment
 
 ### Deploy to GCP using Terraform
+
+See [infrastructure/terraform/README.md](infrastructure/terraform/README.md) for detailed instructions.
+
+Quick start:
 
 ```bash
 cd infrastructure/terraform
 
 # Initialize Terraform
+terraform init
+
+# Create terraform.tfvars from example
+cp terraform.tfvars.example terraform.tfvars
+# Edit terraform.tfvars with your GCP project details
+
+# Build and push Docker images
+gcloud auth configure-docker asia-southeast1-docker.pkg.dev
+
+# Backend
+docker build -t asia-southeast1-docker.pkg.dev/PROJECT_ID/cms-prod/backend:latest ../backend
+docker push asia-southeast1-docker.pkg.dev/PROJECT_ID/cms-prod/backend:latest
+
+# Frontend
+docker build -t asia-southeast1-docker.pkg.dev/PROJECT_ID/cms-prod/frontend:latest ../frontend
+docker push asia-southeast1-docker.pkg.dev/PROJECT_ID/cms-prod/frontend:latest
+
+# Deploy infrastructure
+terraform apply
+```
+
+## 🔐 API Features
+
+### Authentication
+- `POST /api/auth/register` - Register new user
+- `POST /api/auth/login` - Login and get JWT token
+- `GET /api/auth/me` - Get current user profile
+- `POST /api/auth/refresh` - Refresh access token
+
+### Categories (Protected)
+- `GET /api/categories` - List categories (with pagination, search)
+- `POST /api/categories` - Create category
+- `PUT /api/categories/:id` - Update category
+- `DELETE /api/categories/:id` - Delete category
+
+### News
+- `GET /api/news` - List published news (public)
+- `GET /api/news/:id` - Get news detail (public)
+- `GET /api/news/my-news` - List user's news (protected)
+- `POST /api/news` - Create news (protected)
+- `PUT /api/news/my-news/:id` - Update own news
+- `DELETE /api/news/my-news/:id` - Delete own news
+- `PATCH /api/news/my-news/:id/publish` - Publish news
+- `PATCH /api/news/my-news/:id/archive` - Archive news
+
+### Admin (Admin only)
+- `GET /api/admin/news` - List all news
+- `PUT /api/admin/news/:id` - Update any news
+- `DELETE /api/admin/news/:id` - Delete any news
+
+## 🧪 Testing
+
+### Backend Tests
+```bash
+cd backend
+./mvnw test
+```
+
+### Frontend Type Check
+```bash
+cd frontend
+npm run type-check
+```
+
+## 📝 License
+
+MIT License
 terraform init
 
 # Plan deployment
