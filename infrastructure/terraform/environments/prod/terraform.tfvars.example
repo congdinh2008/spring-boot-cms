@@ -1,0 +1,51 @@
+# Production Environment - Example tfvars
+# Copy this file to terraform.tfvars and fill in your values
+# IMPORTANT: Never commit terraform.tfvars with secrets to version control
+
+project_id = "your-gcp-project-id"
+region     = "asia-southeast1"
+
+# Application
+app_name    = "cms"
+cost_center = "production"
+
+# Database
+database_name       = "cms_prod"
+database_user       = "cms_prod_user"
+database_tier       = "db-custom-4-8192"
+database_disk_size  = 50
+database_disk_limit = 200
+enable_read_replica = false
+
+# Secrets (use environment variables or secrets manager in CI/CD)
+# jwt_secret = "your-production-jwt-secret-at-least-64-characters"
+
+# Backend Configuration
+backend_image_tag     = "v1.0.0"
+backend_cpu           = "2"
+backend_memory        = "2Gi"
+backend_min_instances = 2
+backend_max_instances = 20
+
+# Frontend Configuration
+frontend_image_tag     = "v1.0.0"
+frontend_cpu           = "1"
+frontend_memory        = "512Mi"
+frontend_min_instances = 2
+frontend_max_instances = 20
+
+# Security
+domains      = ["cms.yourdomain.com", "www.cms.yourdomain.com"]
+cors_origins = "https://cms.yourdomain.com"
+
+rate_limit_requests          = 100
+frontend_rate_limit_requests = 500
+
+blocked_countries = []
+allowed_ips       = []
+blocked_ips       = []
+
+# Monitoring
+alert_emails      = ["ops@yourdomain.com", "dev@yourdomain.com"]
+slack_webhook_url = ""
+slack_channel     = "#cms-alerts"

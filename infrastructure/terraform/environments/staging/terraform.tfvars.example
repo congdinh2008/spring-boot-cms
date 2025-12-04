@@ -1,0 +1,25 @@
+# Staging Environment - Example tfvars
+# Copy this file to terraform.tfvars and fill in your values
+
+project_id = "your-gcp-project-id"
+region     = "asia-southeast1"
+
+# Application
+app_name = "cms"
+
+# Database
+database_name = "cms_staging"
+database_user = "cms_staging_user"
+
+# Secrets (use environment variables or secrets manager in CI/CD)
+# jwt_secret = "your-jwt-secret-at-least-32-characters"
+
+# Image tags
+backend_image_tag  = "staging"
+frontend_image_tag = "staging"
+
+# CORS
+cors_origins = "https://staging.yourdomain.com"
+
+# Alerts
+alert_emails = ["devops@yourdomain.com"]
