@@ -1,34 +1,42 @@
-HELP.md
-target/
-.mvn/wrapper/maven-wrapper.jar
-!**/src/main/**/target/
-!**/src/test/**/target/
+# ==== Backend (Java/Spring Boot) ====
+backend/target/
+backend/*.jar
+backend/.mvn/wrapper/maven-wrapper.jar
 
-### STS ###
-.apt_generated
-.classpath
-.factorypath
-.project
-.settings
-.springBeans
-.sts4-cache
+# ==== Frontend (React/Node) ====
+frontend/node_modules/
+frontend/dist/
+frontend/.env.local
+frontend/.env.*.local
+frontend/*.log
 
-### IntelliJ IDEA ###
-.idea
+# ==== IDE ====
+.idea/
 *.iws
 *.iml
 *.ipr
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
 
-### NetBeans ###
-/nbproject/private/
-/nbbuild/
-/dist/
-/nbdist/
-/.nb-gradle/
-build/
-!**/src/main/**/build/
-!**/src/test/**/build/
+# ==== OS ====
+.DS_Store
+Thumbs.db
 
-### VS Code ###
-.vscode/
-src/main/java/com/.DS_Store
+# ==== Infrastructure ====
+infrastructure/terraform/.terraform/
+infrastructure/terraform/*.tfstate
+infrastructure/terraform/*.tfstate.*
+infrastructure/terraform/*.tfvars
+infrastructure/terraform/.terraform.lock.hcl
+!infrastructure/terraform/*.tfvars.example
+
+# ==== Docker ====
+*.log
+
+# ==== Environment ====
+.env
+.env.local
+*.env.local
