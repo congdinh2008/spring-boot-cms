@@ -1,61 +1,92 @@
 # CMS - Content Management System
 
-A full-stack Content Management System built with Spring Boot backend and React TypeScript frontend, deployed on Google Cloud Platform.
+A full-stack Content Management System built with Spring Boot backend and React TypeScript frontend, deployed on Google Cloud Platform using Terraform.
 
 ## 🏗️ Project Structure
 
 ```
 cms/
-├── backend/                 # Spring Boot API
+├── backend/                    # Spring Boot API
 │   ├── src/
 │   │   └── main/
-│   │       ├── java/       # Java source code
-│   │       └── resources/  # Configuration files
+│   │       ├── java/          # Java source code
+│   │       │   └── com/congdinh/cms/
+│   │       │       ├── config/        # Security, CORS configs
+│   │       │       ├── controllers/   # REST controllers
+│   │       │       ├── dtos/          # Data Transfer Objects
+│   │       │       ├── entities/      # JPA entities
+│   │       │       ├── repositories/  # Spring Data repos
+│   │       │       ├── services/      # Business logic
+│   │       │       └── exceptions/    # Exception handling
+│   │       └── resources/     # Configuration files
 │   ├── pom.xml
 │   └── Dockerfile
-├── frontend/                # React + TypeScript + Vite
+├── frontend/                   # React + TypeScript + Vite
 │   ├── src/
-│   │   ├── api/           # API client
-│   │   ├── components/    # React components
-│   │   ├── hooks/         # Custom React hooks
-│   │   ├── pages/         # Page components
-│   │   ├── stores/        # Zustand stores
-│   │   └── types/         # TypeScript types
+│   │   ├── api/               # API client (Axios)
+│   │   ├── components/        # React components
+│   │   │   ├── ui/           # Reusable UI components
+│   │   │   ├── layout/       # Header, Footer, Layout
+│   │   │   └── auth/         # Auth components
+│   │   ├── hooks/             # Custom React hooks
+│   │   ├── pages/             # Page components
+│   │   ├── stores/            # Zustand stores
+│   │   └── types/             # TypeScript types
 │   ├── package.json
 │   ├── Dockerfile
-│   └── nginx.conf
+│   ├── nginx.conf             # Local development nginx
+│   ├── nginx.prod.conf        # Production nginx with API proxy
+│   └── docker-entrypoint.sh   # Runtime config script
 ├── infrastructure/
-│   └── terraform/          # GCP Terraform configs
-├── docker-compose.yml       # Full-stack Docker setup
+│   └── terraform/
+│       ├── modules/           # Reusable Terraform modules
+│       │   ├── network/       # VPC, Subnets, NAT
+│       │   ├── database/      # Cloud SQL PostgreSQL
+│       │   ├── cloud-run/     # Cloud Run services
+│       │   ├── secrets/       # Secret Manager
+│       │   ├── iam/           # Service accounts & roles
+│       │   ├── artifact-registry/  # Container registry
+│       │   └── security/      # Cloud Armor (prod only)
+│       └── environments/      # Environment configs
+│           ├── dev/
+│           ├── staging/
+│           └── prod/
+├── .github/
+│   └── workflows/             # GitHub Actions CI/CD
+├── docker-compose.yml         # Full-stack Docker setup
 └── README.md
 ```
 
 ## 🚀 Tech Stack
 
 ### Backend
-- **Framework**: Spring Boot 4.0.0
+- **Framework**: Spring Boot 4.0.0 (Java 21)
 - **Security**: Spring Security 7.0 + JWT Authentication
-- **Database**: PostgreSQL 17
-- **API Documentation**: OpenAPI 3.0 (Swagger)
+- **Database**: PostgreSQL 16/17
+- **ORM**: Spring Data JPA / Hibernate
+- **API Documentation**: OpenAPI 3.0 (SpringDoc)
 - **Build**: Maven
+- **Container**: Docker with multi-stage build
 
 ### Frontend
-- **Framework**: React 18 + TypeScript
+- **Framework**: React 19.2 + TypeScript 5.9
 - **Build Tool**: Vite 7
 - **State Management**: 
-  - TanStack Query (Server State)
+  - TanStack Query v5 (Server State)
   - Zustand (Client State)
 - **Styling**: Tailwind CSS 4.0
-- **Routing**: React Router v6
+- **Routing**: React Router v7
 - **HTTP Client**: Axios
+- **UI Components**: Custom components (Button, Input, Modal, Table, etc.)
 
-### Infrastructure
-- **Cloud**: Google Cloud Platform (GCP)
-- **Compute**: Cloud Run (Serverless)
-- **Database**: Cloud SQL (PostgreSQL 17)
+### Infrastructure (GCP)
+- **Compute**: Cloud Run (Serverless, Gen2)
+- **Database**: Cloud SQL PostgreSQL 16 (Private IP)
+- **Networking**: VPC, VPC Access Connector, Cloud NAT
 - **Container Registry**: Artifact Registry
 - **Secrets**: Secret Manager
-- **IaC**: Terraform
+- **Security**: Cloud Armor (Production)
+- **IaC**: Terraform (Modular architecture)
 
 ## 🛠️ Development Setup
 
@@ -63,27 +94,27 @@ cms/
 - Java 21+
 - Node.js 20+
 - Docker & Docker Compose
-- PostgreSQL 17 (or use Docker)
+- PostgreSQL 16+ (or use Docker)
 
 ### Backend Development
 
 ```bash
 cd backend
 
-# Start database with Docker
+# Option 1: Start PostgreSQL with Docker
 docker run -d \
   --name cms-postgres \
-  -e POSTGRES_DB=cms \
-  -e POSTGRES_USER=cms \
-  -e POSTGRES_PASSWORD=cms123 \
+  -e POSTGRES_DB=cms_dev_db \
+  -e POSTGRES_USER=postgres \
+  -e POSTGRES_PASSWORD=postgres \
   -p 5432:5432 \
-  postgres:17-alpine
+  postgres:16-alpine
 
 # Run application
 ./mvnw spring-boot:run
 
 # API available at http://localhost:8080
-# Swagger UI at http://localhost:8080/swagger-ui/index.html
+# Swagger UI at http://localhost:8080/swagger-ui.html
 ```
 
 ### Frontend Development
@@ -93,6 +124,9 @@ cd frontend
 
 # Install dependencies
 npm install
+
+# Create .env from example
+cp .env.example .env
 
 # Start dev server (proxies /api to backend)
 npm run dev
@@ -104,75 +138,168 @@ npm run dev
 
 ```bash
 # From root directory
-cp .env.example .env  # Configure environment variables
 docker-compose up -d
 
-# Frontend: http://localhost (port 80)
-# Backend API: http://localhost:8080
-# Database: localhost:5432
+# Services:
+# - Frontend: http://localhost (port 80)
+# - Backend API: http://localhost:8080
+# - PostgreSQL: localhost:5432
 ```
 
-## 📦 Production Deployment
+## 📦 Production Deployment (GCP)
 
-### Deploy to GCP using Terraform
+### Prerequisites
+- GCP Project with billing enabled
+- `gcloud` CLI authenticated
+- Terraform >= 1.5
+- Docker
 
-See [infrastructure/terraform/README.md](infrastructure/terraform/README.md) for detailed instructions.
-
-Quick start:
+### Deploy Infrastructure
 
 ```bash
-cd infrastructure/terraform
+cd infrastructure/terraform/environments/dev
 
 # Initialize Terraform
 terraform init
 
-# Create terraform.tfvars from example
+# Create terraform.tfvars
 cp terraform.tfvars.example terraform.tfvars
-# Edit terraform.tfvars with your GCP project details
+# Edit with your GCP project details
 
-# Build and push Docker images
-gcloud auth configure-docker asia-southeast1-docker.pkg.dev
+# Preview changes
+terraform plan
 
-# Backend
-docker build -t asia-southeast1-docker.pkg.dev/PROJECT_ID/cms-prod/backend:latest ../backend
-docker push asia-southeast1-docker.pkg.dev/PROJECT_ID/cms-prod/backend:latest
-
-# Frontend
-docker build -t asia-southeast1-docker.pkg.dev/PROJECT_ID/cms-prod/frontend:latest ../frontend
-docker push asia-southeast1-docker.pkg.dev/PROJECT_ID/cms-prod/frontend:latest
-
-# Deploy infrastructure
+# Deploy
 terraform apply
 ```
 
-## 🔐 API Features
+### Build and Push Docker Images
+
+**Important**: For Mac M1/M2, must build with `--platform linux/amd64` for Cloud Run.
+
+```bash
+# Authenticate Docker with GCP
+gcloud auth configure-docker asia-southeast1-docker.pkg.dev
+
+# Build and push backend
+cd backend
+docker build --platform linux/amd64 \
+  -t asia-southeast1-docker.pkg.dev/PROJECT_ID/cms-dev-images/backend:latest .
+docker push asia-southeast1-docker.pkg.dev/PROJECT_ID/cms-dev-images/backend:latest
+
+# Build and push frontend
+cd ../frontend
+docker build --platform linux/amd64 \
+  -t asia-southeast1-docker.pkg.dev/PROJECT_ID/cms-dev-images/frontend:latest .
+docker push asia-southeast1-docker.pkg.dev/PROJECT_ID/cms-dev-images/frontend:latest
+
+# Redeploy Cloud Run services
+cd ../infrastructure/terraform/environments/dev
+terraform apply -auto-approve
+```
+
+### Destroy Resources
+
+```bash
+cd infrastructure/terraform/environments/dev
+
+# Recommended: Destroy in order to avoid dependency issues
+terraform destroy -target=module.cloud_run -auto-approve
+terraform destroy -target=module.database -auto-approve
+terraform destroy -auto-approve
+```
+
+## 🔐 API Endpoints
 
 ### Authentication
-- `POST /api/auth/register` - Register new user
-- `POST /api/auth/login` - Login and get JWT token
-- `GET /api/auth/me` - Get current user profile
-- `POST /api/auth/refresh` - Refresh access token
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| POST | `/api/auth/register` | Register new user | ❌ |
+| POST | `/api/auth/login` | Login, get JWT token | ❌ |
+| GET | `/api/auth/me` | Get current user profile | ✅ |
 
-### Categories (Protected)
-- `GET /api/categories` - List categories (with pagination, search)
-- `POST /api/categories` - Create category
-- `PUT /api/categories/:id` - Update category
-- `DELETE /api/categories/:id` - Delete category
+### Categories
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| GET | `/api/v1/categories` | List categories (paginated) | ❌ |
+| GET | `/api/v1/categories/:id` | Get category by ID | ❌ |
+| POST | `/api/v1/categories` | Create category | ✅ Admin |
+| PUT | `/api/v1/categories/:id` | Update category | ✅ Admin |
+| DELETE | `/api/v1/categories/:id` | Delete category | ✅ Admin |
 
 ### News
-- `GET /api/news` - List published news (public)
-- `GET /api/news/:id` - Get news detail (public)
-- `GET /api/news/my-news` - List user's news (protected)
-- `POST /api/news` - Create news (protected)
-- `PUT /api/news/my-news/:id` - Update own news
-- `DELETE /api/news/my-news/:id` - Delete own news
-- `PATCH /api/news/my-news/:id/publish` - Publish news
-- `PATCH /api/news/my-news/:id/archive` - Archive news
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| GET | `/api/v1/news` | List published news | ❌ |
+| GET | `/api/v1/news/:id` | Get news detail | ❌ |
+| GET | `/api/v1/news/my-news` | List user's news | ✅ |
+| POST | `/api/v1/news` | Create news | ✅ |
+| PUT | `/api/v1/news/my-news/:id` | Update own news | ✅ |
+| DELETE | `/api/v1/news/my-news/:id` | Delete own news | ✅ |
+| PATCH | `/api/v1/news/my-news/:id/publish` | Publish news | ✅ |
+| PATCH | `/api/v1/news/my-news/:id/archive` | Archive news | ✅ |
 
-### Admin (Admin only)
-- `GET /api/admin/news` - List all news
-- `PUT /api/admin/news/:id` - Update any news
-- `DELETE /api/admin/news/:id` - Delete any news
+### Admin (Admin role required)
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| GET | `/api/v1/admin/news` | List all news | ✅ Admin |
+| PUT | `/api/v1/admin/news/:id` | Update any news | ✅ Admin |
+| DELETE | `/api/v1/admin/news/:id` | Delete any news | ✅ Admin |
+
+## 🔧 Environment Variables
+
+### Backend
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `SPRING_PROFILES_ACTIVE` | Active profile | `dev` |
+| `SPRING_DATASOURCE_URL` | JDBC connection URL | `jdbc:postgresql://localhost:5432/cms_dev_db` |
+| `SPRING_DATASOURCE_USERNAME` | Database username | `postgres` |
+| `SPRING_DATASOURCE_PASSWORD` | Database password | `postgres` |
+| `JWT_SECRET` | JWT signing key (base64) | - |
+| `JWT_EXPIRATION` | Token expiration (ms) | `3600000` |
+| `CORS_ORIGINS` | Allowed CORS origins | `http://localhost:5173` |
+
+### Frontend
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `VITE_API_BASE_URL` | API base URL | `/api` |
+| `BACKEND_URL` | Backend URL (prod nginx) | Set by Terraform |
+
+## 🏛️ Architecture
+
+### Production Architecture (GCP)
+
+```
+                    ┌─────────────────────────────────────────────────────────┐
+                    │                     Google Cloud Platform               │
+                    │                                                         │
+   Users ──────────►│  ┌─────────────────┐      ┌─────────────────┐         │
+                    │  │   Cloud Run     │      │   Cloud Run     │         │
+                    │  │   (Frontend)    │─────►│   (Backend)     │         │
+                    │  │   nginx + React │ /api │   Spring Boot   │         │
+                    │  └─────────────────┘      └────────┬────────┘         │
+                    │                                    │                   │
+                    │                           ┌────────▼────────┐         │
+                    │                           │  VPC Connector  │         │
+                    │                           └────────┬────────┘         │
+                    │                                    │ Private IP       │
+                    │                           ┌────────▼────────┐         │
+                    │                           │    Cloud SQL    │         │
+                    │                           │   PostgreSQL    │         │
+                    │                           └─────────────────┘         │
+                    │                                                         │
+                    │  ┌─────────────────┐      ┌─────────────────┐         │
+                    │  │ Secret Manager  │      │Artifact Registry│         │
+                    │  │ (DB Pass, JWT)  │      │ (Docker Images) │         │
+                    │  └─────────────────┘      └─────────────────┘         │
+                    └─────────────────────────────────────────────────────────┘
+```
+
+### CORS Strategy
+
+- **Frontend nginx** handles CORS for `/api/*` requests
+- **Backend CORS** is for direct access (Swagger UI, local dev)
+- **Nginx removes Origin header** when proxying to backend to avoid double CORS handling
 
 ## 🧪 Testing
 
@@ -186,55 +313,32 @@ cd backend
 ```bash
 cd frontend
 npm run type-check
+npm run lint
 ```
 
-## 📝 License
+## 📚 Documentation
 
-MIT License
-terraform init
+- **API Documentation**: `/swagger-ui.html` (when backend is running)
+- **Terraform Documentation**: [infrastructure/terraform/README.md](infrastructure/terraform/README.md)
 
-# Plan deployment
-terraform plan -var-file="prod.tfvars"
+## 🐛 Troubleshooting
 
-# Apply deployment
-terraform apply -var-file="prod.tfvars"
-```
+### Common Issues
 
-## 🔐 Environment Variables
+1. **Docker build fails on Mac M1/M2**
+   - Use `--platform linux/amd64` flag
 
-### Backend
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `SPRING_DATASOURCE_URL` | Database URL | `jdbc:postgresql://localhost:5432/cms_db` |
-| `SPRING_DATASOURCE_USERNAME` | DB Username | `postgres` |
-| `SPRING_DATASOURCE_PASSWORD` | DB Password | `postgres` |
-| `JWT_SECRET` | JWT Secret Key | - |
-| `JWT_EXPIRATION` | Token expiration (ms) | `3600000` |
+2. **Cloud Run can't connect to Cloud SQL**
+   - Ensure VPC Connector is configured
+   - Check `SPRING_DATASOURCE_URL` uses private IP
 
-### Frontend
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `VITE_API_URL` | Backend API URL | `http://localhost:8080` |
+3. **CORS errors in browser**
+   - Frontend nginx handles CORS for `/api/*`
+   - Check `BACKEND_URL` environment variable
 
-## 📝 API Documentation
-
-After starting the backend, access Swagger UI at:
-- Local: http://localhost:8080/swagger-ui/index.html
-- Production: https://api.your-domain.com/swagger-ui/index.html
-
-## 🧪 Testing
-
-### Backend Tests
-```bash
-cd backend
-./mvnw test
-```
-
-### Frontend Tests
-```bash
-cd frontend
-npm run test
-```
+4. **Terraform destroy hangs**
+   - Destroy Cloud Run first: `terraform destroy -target=module.cloud_run`
+   - Then destroy database and remaining resources
 
 ## 📄 License
 

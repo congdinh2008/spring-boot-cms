@@ -392,10 +392,57 @@ www.cms.yourdomain.com A     <load_balancer_ip>
 
 ## 🧹 Cleanup
 
-```bash
-# Destroy environment
-make destroy ENV=dev
+### Destroy Order (Recommended)
 
+Để tránh lỗi dependency khi destroy, hãy xóa theo thứ tự:
+
+```bash
+cd environments/dev
+
+# Step 1: Destroy Cloud Run services (terminate DB connections)
+terraform destroy -target=module.cloud_run -auto-approve
+
+# Step 2: Destroy database
+terraform destroy -target=module.database -auto-approve
+
+# Step 3: Destroy remaining resources
+terraform destroy -auto-approve
+```
+
+### Common Destroy Issues
+
+| Issue | Cause | Solution |
+|-------|-------|----------|
+| Database in use | Cloud Run still has connections | Destroy Cloud Run first |
+| VPC Connector hangs | Cloud Run not fully terminated | Wait 2-3 mins, or use gcloud to delete |
+| Service Networking stuck | Cloud SQL just deleted | Remove from state: `terraform state rm module.network.google_service_networking_connection.private_vpc_connection` |
+| State lock error | Previous terraform crashed | `terraform force-unlock LOCK_ID` |
+
+### Force Cleanup (Emergency)
+
+Nếu terraform destroy bị treo:
+
+```bash
+# Kill terraform process
+# Ctrl+C or kill the process
+
+# Remove lock file if needed
+rm -f .terraform.tfstate.lock.info
+
+# Remove stuck resource from state
+terraform state rm <resource_address>
+
+# Delete resource manually via gcloud
+gcloud sql instances delete INSTANCE_NAME --quiet
+gcloud compute networks vpc-access connectors delete CONNECTOR_NAME --region=REGION --quiet
+
+# Continue destroy
+terraform destroy -auto-approve
+```
+
+### Production Destroy
+
+```bash
 # Production (có confirmation)
 make destroy ENV=prod
 # Type 'destroy-production' to confirm
