@@ -16,6 +16,11 @@ import com.congdinh.cms.dtos.news.NewsResponseDTO;
 import com.congdinh.cms.services.NewsService;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -23,10 +28,11 @@ import lombok.RequiredArgsConstructor;
 
 /**
  * REST Controller for News management.
+ * Provides CRUD operations for news articles with role-based access control.
  */
 @RestController
 @RequestMapping("/api/v1/news")
-@Tag(name = "News", description = "News management APIs")
+@Tag(name = "News", description = "News management APIs - CRUD operations for news articles with role-based access control")
 @RequiredArgsConstructor
 public class NewsController {
 
@@ -38,8 +44,12 @@ public class NewsController {
      * - Authenticated: all news
      */
     @GetMapping
-    @Operation(summary = "Get all news articles", 
-               description = "Returns all news for authenticated users, only PUBLISHED for guests.")
+    @Operation(summary = "Get all news articles", description = "Returns all news articles. Guest users see only PUBLISHED articles, "
+            +
+            "authenticated users see all articles regardless of status.")
+    @ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "News articles retrieved successfully", content = @Content(mediaType = "application/json", array = @ArraySchema(schema = @Schema(implementation = NewsResponseDTO.class))))
+    })
     public ResponseEntity<ApiResponse<List<NewsResponseDTO>>> getAllNews(Authentication authentication) {
         boolean isAuthenticated = authentication != null && authentication.isAuthenticated();
         List<NewsResponseDTO> news = newsService.getAllNews(isAuthenticated);
@@ -50,9 +60,13 @@ public class NewsController {
      * Get news article by ID.
      */
     @GetMapping("/{id}")
-    @Operation(summary = "Get news article by ID", 
-               description = "Returns full details of a news article.")
-    public ResponseEntity<ApiResponse<NewsDetailDTO>> getNewsById(@PathVariable Long id) {
+    @Operation(summary = "Get news article by ID", description = "Returns full details of a news article including author information and category.")
+    @ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "News article retrieved successfully", content = @Content(mediaType = "application/json", schema = @Schema(implementation = NewsDetailDTO.class))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "News article not found", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponse.class)))
+    })
+    public ResponseEntity<ApiResponse<NewsDetailDTO>> getNewsById(
+            @Parameter(description = "News article ID", required = true, example = "1") @PathVariable Long id) {
         NewsDetailDTO news = newsService.getNewsById(id);
         return ResponseEntity.ok(ApiResponse.success(news, "News retrieved successfully"));
     }
@@ -62,13 +76,20 @@ public class NewsController {
      */
     @PostMapping
     @PreAuthorize("hasRole('REPORTER') or hasRole('ADMIN')")
-    @Operation(summary = "Create a new news article", 
-               description = "Creates a news article with DRAFT status. Requires REPORTER or ADMIN role.",
-               security = @SecurityRequirement(name = "bearerAuth"))
+    @Operation(summary = "Create a new news article", description = "Creates a news article with DRAFT status. The authenticated user becomes the author. "
+            +
+            "Requires REPORTER or ADMIN role.", security = @SecurityRequirement(name = "bearerAuth"))
+    @ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "News article created successfully", content = @Content(mediaType = "application/json", schema = @Schema(implementation = NewsDetailDTO.class))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid request data (validation errors)", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponse.class))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized - JWT token missing or invalid", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponse.class))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Forbidden - Requires REPORTER or ADMIN role", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponse.class))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Category not found", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponse.class)))
+    })
     public ResponseEntity<ApiResponse<NewsDetailDTO>> createNews(
-            @Valid @RequestBody NewsRequestDTO request,
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "News article creation request", required = true, content = @Content(schema = @Schema(implementation = NewsRequestDTO.class))) @Valid @RequestBody NewsRequestDTO request,
             Authentication authentication) {
-        
+
         Long authorId = getCurrentUserId(authentication);
         NewsDetailDTO news = newsService.createNews(request, authorId);
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -80,14 +101,21 @@ public class NewsController {
      */
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('REPORTER') or hasRole('ADMIN')")
-    @Operation(summary = "Update a news article", 
-               description = "Updates a news article. Only the author can update their own article.",
-               security = @SecurityRequirement(name = "bearerAuth"))
+    @Operation(summary = "Update a news article", description = "Updates an existing news article. Only the original author can update their own article. "
+            +
+            "Updating resets the status to DRAFT. Requires REPORTER or ADMIN role.", security = @SecurityRequirement(name = "bearerAuth"))
+    @ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "News article updated successfully", content = @Content(mediaType = "application/json", schema = @Schema(implementation = NewsDetailDTO.class))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid request data (validation errors)", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponse.class))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized - JWT token missing or invalid", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponse.class))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Forbidden - Not the author of this article or insufficient role", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponse.class))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "News article or Category not found", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponse.class)))
+    })
     public ResponseEntity<ApiResponse<NewsDetailDTO>> updateNews(
-            @PathVariable Long id,
-            @Valid @RequestBody NewsRequestDTO request,
+            @Parameter(description = "News article ID", required = true, example = "1") @PathVariable Long id,
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "News article update request", required = true, content = @Content(schema = @Schema(implementation = NewsRequestDTO.class))) @Valid @RequestBody NewsRequestDTO request,
             Authentication authentication) {
-        
+
         Long currentUserId = getCurrentUserId(authentication);
         NewsDetailDTO news = newsService.updateNews(id, request, currentUserId);
         return ResponseEntity.ok(ApiResponse.success(news, "News updated successfully"));
@@ -100,13 +128,19 @@ public class NewsController {
      */
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('REPORTER') or hasRole('ADMIN')")
-    @Operation(summary = "Delete a news article", 
-               description = "Deletes a news article. Admin can delete any, Reporter can only delete own.",
-               security = @SecurityRequirement(name = "bearerAuth"))
+    @Operation(summary = "Delete a news article", description = "Deletes a news article permanently. ADMIN can delete any article, "
+            +
+            "REPORTER can only delete their own articles.", security = @SecurityRequirement(name = "bearerAuth"))
+    @ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "News article deleted successfully", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponse.class))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized - JWT token missing or invalid", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponse.class))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Forbidden - Not the author of this article (for REPORTER) or insufficient role", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponse.class))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "News article not found", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponse.class)))
+    })
     public ResponseEntity<ApiResponse<Void>> deleteNews(
-            @PathVariable Long id,
+            @Parameter(description = "News article ID", required = true, example = "1") @PathVariable Long id,
             Authentication authentication) {
-        
+
         Long currentUserId = getCurrentUserId(authentication);
         boolean isAdmin = hasRole(authentication, "ROLE_ADMIN");
         newsService.deleteNews(id, currentUserId, isAdmin);

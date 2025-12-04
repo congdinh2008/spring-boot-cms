@@ -13,6 +13,10 @@ import com.congdinh.cms.dtos.category.CategoryResponseDTO;
 import com.congdinh.cms.services.CategoryService;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -23,7 +27,7 @@ import lombok.RequiredArgsConstructor;
  */
 @RestController
 @RequestMapping("/api/v1/categories")
-@Tag(name = "Categories", description = "Category management APIs")
+@Tag(name = "Categories", description = "Category management APIs - CRUD operations for news categories")
 @RequiredArgsConstructor
 public class CategoryController {
 
@@ -33,7 +37,10 @@ public class CategoryController {
      * Get all categories (Public).
      */
     @GetMapping
-    @Operation(summary = "Get all categories", description = "Returns a list of all categories. This endpoint is public.")
+    @Operation(summary = "Get all categories", description = "Returns a list of all categories. This endpoint is public and does not require authentication.")
+    @ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Categories retrieved successfully", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponse.class)))
+    })
     public ResponseEntity<ApiResponse<List<CategoryResponseDTO>>> getAllCategories() {
         List<CategoryResponseDTO> categories = categoryService.getAllCategories();
         return ResponseEntity.ok(ApiResponse.success(categories, "Categories retrieved successfully"));
@@ -44,7 +51,12 @@ public class CategoryController {
      */
     @GetMapping("/{id}")
     @Operation(summary = "Get category by ID", description = "Returns a single category by its ID. This endpoint is public.")
-    public ResponseEntity<ApiResponse<CategoryResponseDTO>> getCategoryById(@PathVariable Long id) {
+    @ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Category retrieved successfully", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponse.class))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Category not found", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponse.class)))
+    })
+    public ResponseEntity<ApiResponse<CategoryResponseDTO>> getCategoryById(
+            @Parameter(description = "Category ID", required = true, example = "1") @PathVariable Long id) {
         CategoryResponseDTO category = categoryService.getCategoryById(id);
         return ResponseEntity.ok(ApiResponse.success(category, "Category retrieved successfully"));
     }
@@ -54,7 +66,12 @@ public class CategoryController {
      */
     @GetMapping("/slug/{slug}")
     @Operation(summary = "Get category by slug", description = "Returns a single category by its URL-friendly slug. This endpoint is public.")
-    public ResponseEntity<ApiResponse<CategoryResponseDTO>> getCategoryBySlug(@PathVariable String slug) {
+    @ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Category retrieved successfully", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponse.class))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Category not found", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponse.class)))
+    })
+    public ResponseEntity<ApiResponse<CategoryResponseDTO>> getCategoryBySlug(
+            @Parameter(description = "Category slug (URL-friendly)", required = true, example = "tin-tuc") @PathVariable String slug) {
         CategoryResponseDTO category = categoryService.getCategoryBySlug(slug);
         return ResponseEntity.ok(ApiResponse.success(category, "Category retrieved successfully"));
     }
@@ -65,8 +82,14 @@ public class CategoryController {
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Create a new category", description = "Creates a new category with auto-generated slug. Requires ADMIN role.", security = @SecurityRequirement(name = "bearerAuth"))
+    @ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "Category created successfully", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponse.class))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid request data or category name already exists", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponse.class))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized - JWT token missing or invalid", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponse.class))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Forbidden - Requires ADMIN role", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponse.class)))
+    })
     public ResponseEntity<ApiResponse<CategoryResponseDTO>> createCategory(
-            @Valid @RequestBody CategoryRequestDTO request) {
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Category creation request", required = true, content = @Content(schema = @Schema(implementation = CategoryRequestDTO.class))) @Valid @RequestBody CategoryRequestDTO request) {
         CategoryResponseDTO category = categoryService.createCategory(request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.created(category, "Category created successfully"));
@@ -78,9 +101,16 @@ public class CategoryController {
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Update a category", description = "Updates an existing category by ID. Slug will be regenerated based on new name. Requires ADMIN role.", security = @SecurityRequirement(name = "bearerAuth"))
+    @ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Category updated successfully", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponse.class))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid request data or category name already exists", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponse.class))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized - JWT token missing or invalid", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponse.class))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Forbidden - Requires ADMIN role", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponse.class))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Category not found", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponse.class)))
+    })
     public ResponseEntity<ApiResponse<CategoryResponseDTO>> updateCategory(
-            @PathVariable Long id,
-            @Valid @RequestBody CategoryRequestDTO request) {
+            @Parameter(description = "Category ID", required = true, example = "1") @PathVariable Long id,
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Category update request", required = true, content = @Content(schema = @Schema(implementation = CategoryRequestDTO.class))) @Valid @RequestBody CategoryRequestDTO request) {
         CategoryResponseDTO category = categoryService.updateCategory(id, request);
         return ResponseEntity.ok(ApiResponse.success(category, "Category updated successfully"));
     }
@@ -91,7 +121,15 @@ public class CategoryController {
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Delete a category", description = "Deletes a category by ID. Cannot delete if category has associated news articles. Requires ADMIN role.", security = @SecurityRequirement(name = "bearerAuth"))
-    public ResponseEntity<ApiResponse<Void>> deleteCategory(@PathVariable Long id) {
+    @ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Category deleted successfully", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponse.class))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Cannot delete - category has associated news articles", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponse.class))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized - JWT token missing or invalid", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponse.class))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Forbidden - Requires ADMIN role", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponse.class))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Category not found", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiResponse.class)))
+    })
+    public ResponseEntity<ApiResponse<Void>> deleteCategory(
+            @Parameter(description = "Category ID", required = true, example = "1") @PathVariable Long id) {
         categoryService.deleteCategory(id);
         return ResponseEntity.ok(ApiResponse.success(null, "Category deleted successfully"));
     }
